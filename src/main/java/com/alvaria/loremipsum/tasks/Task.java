@@ -1,12 +1,15 @@
-package com.alvaria.loremipsum.utils;
+package com.alvaria.loremipsum.tasks;
 
 /**
  * The {@code Task} class represents a single task that can be queued.
  * Task objects can be compared using their class (depends on the ID) and age.
+ * This class is used for red-black tree that is sorted based on the Task rank
+ * and allows to search for a Task with the highest rank with logarithmic
+ * complexity
  *
  * @author Nikita Nikolaev
  */
-public class Task implements Comparable<Task> {
+public class Task extends BaseTask {
 
     private enum TaskClass {
         NORMAL,
@@ -15,14 +18,11 @@ public class Task implements Comparable<Task> {
         MANAGEMENT_OVERRIDE
     }
 
-    private Long id;
     private Long enqueueTime;
     private TaskClass taskClass;
 
     public Task(Long id, Long enqueueTime) {
-        if (id <= 0) throw new IllegalArgumentException("Task ID must be positive");
-
-        this.id = id;
+        super(id);
         this.enqueueTime = enqueueTime;
 
         if ((id % 3 == 0) && (id % 5 == 0)) {
@@ -62,13 +62,20 @@ public class Task implements Comparable<Task> {
 
     /**
      * Compares two Task objects
-     * @param otherTask the object to be compared.
+     * @param otherBaseTask the object to be compared.
      * @return {@code 1} if this object is greater than the specified object;
      *         {@code -1} if this object is less than the specified object;
      *         {@code 0} if the objects are equal.
      */
     @Override
-    public int compareTo(Task otherTask) {
+    public int compareTo(BaseTask otherBaseTask) {
+        Task otherTask;
+        if (!(otherBaseTask instanceof Task)) {
+            throw new IllegalArgumentException("Cannot compare BaseTask and Task objects");
+        } else {
+            otherTask = (Task)otherBaseTask;
+        }
+
         if ((this.taskClass == TaskClass.MANAGEMENT_OVERRIDE) && (otherTask.taskClass != TaskClass.MANAGEMENT_OVERRIDE)) {
             return 1;
         } else if ((this.taskClass != TaskClass.MANAGEMENT_OVERRIDE) && (otherTask.taskClass == TaskClass.MANAGEMENT_OVERRIDE)) {
@@ -89,4 +96,5 @@ public class Task implements Comparable<Task> {
     public Long getEnqueueTime() {
         return enqueueTime;
     }
+
 }
