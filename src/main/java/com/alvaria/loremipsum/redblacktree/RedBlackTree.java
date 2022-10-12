@@ -1,8 +1,18 @@
 package com.alvaria.loremipsum.redblacktree;
 
+/**
+ * The {@code RedBlackTree}  class represents a Red-Black tree that allows to
+ * search/insert/delete nodes with logarithmic complexity *
+ */
 public class RedBlackTree<V extends Comparable<V>> {
     private Node<V> root;
 
+    /**
+     * Finds the given value in the tree
+     * @param value to find
+     * @return {@code Node} of given value if found
+     *         {@code null} otherwise
+     */
     public Node<V> findValue(V value) {
         Node<V> node = root;
         while (node != null) {
@@ -18,6 +28,11 @@ public class RedBlackTree<V extends Comparable<V>> {
         return null;
     }
 
+    /**
+     * Insert a node into the tree and repair the Red-Black properties
+     * after that if required
+     * @param value to insert
+     */
     public void insertNode(V value) {
         Node<V> node = root;
         Node<V> parent = null;
@@ -51,14 +66,29 @@ public class RedBlackTree<V extends Comparable<V>> {
         repairRedBlackPropertiesAfterInsert(newNode);
     }
 
+    /**
+     * Find the minimum Node
+     * @return {@code node} if found
+     *         {@code null} otherwise
+     */
     public Node<V> findMinimum() {
         return findMinimum(root);
     }
 
+    /**
+     * Find the maximum Node
+     * @return {@code node} if found
+     *         {@code null} otherwise
+     */
     public Node<V> findMaximum() {
         return findMaximum(root);
     }
 
+    /**
+     * Find the maximum value AND delete its node
+     * @return {@code value} if the tree is not empty
+     *         {@code null} otherwise
+     */
     public V pollMaximum() {
         Node<V> max = findMaximum();
         V data = max.data;
@@ -66,6 +96,11 @@ public class RedBlackTree<V extends Comparable<V>> {
         return data;
     }
 
+    /**
+     * Find the minimum value AND delete its node
+     * @return {@code value} if the tree is not empty
+     *         {@code null} otherwise
+     */
     public V pollMinimum() {
         Node<V> min = findMinimum();
         V data = min.data;
@@ -73,6 +108,10 @@ public class RedBlackTree<V extends Comparable<V>> {
         return data;
     }
 
+    /**
+     * Delete the node of the given value (if exists)
+     * @param value
+     */
     public void deleteNode(V value) {
         Node<V> node = root;
 
@@ -295,6 +334,10 @@ public class RedBlackTree<V extends Comparable<V>> {
     }
 
     private Node<V> findMinimum(Node<V> node) {
+        if (node == null) {
+            return null;
+        }
+
         while (node.left != null) {
             node = node.left;
         }
@@ -303,6 +346,10 @@ public class RedBlackTree<V extends Comparable<V>> {
     }
 
     private Node<V> findMaximum(Node<V> node) {
+        if (node == null) {
+            return null;
+        }
+
         while (node.right != null) {
             node = node.right;
         }
