@@ -10,13 +10,13 @@ package com.alvaria.loremipsum.tasks;
 public class IDTask implements Comparable<IDTask> {
 
     private Long id;
-    private RankedTask linkedTask; // used to find the corresponding task object if another red-black tree
+    private RankedTask linkedRankedTask; // used to find the corresponding task object if another red-black tree
 
     public IDTask(Long id) {
         if (id <= 0) throw new IllegalArgumentException("Task ID must be positive");
 
         this.id = id;
-        this.linkedTask = null;
+        this.linkedRankedTask = null;
     }
 
     /**
@@ -41,4 +41,7 @@ public class IDTask implements Comparable<IDTask> {
         return id;
     }
 
+    public void setLinkedRankedTask(RankedTask linkedRankedTask) {
+        this.linkedRankedTask = linkedRankedTask;
+    }
 }

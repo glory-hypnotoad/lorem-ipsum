@@ -7,6 +7,10 @@ package com.alvaria.loremipsum.redblacktree;
 public class RedBlackTree<V extends Comparable<V>> {
     private Node<V> root;
 
+    public RedBlackTree() {
+        root = null;
+    }
+
     /**
      * Finds the given value in the tree
      * @param value to find

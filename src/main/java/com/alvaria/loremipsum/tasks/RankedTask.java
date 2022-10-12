@@ -21,6 +21,7 @@ public class RankedTask implements Comparable<RankedTask>{
     private Long id;
     private Long enqueueTime;
     private TaskClass taskClass;
+    private IDTask linkedIdTask;
 
     public RankedTask(Long id, Long enqueueTime) {
         this.id = id;
@@ -100,4 +101,7 @@ public class RankedTask implements Comparable<RankedTask>{
         return enqueueTime;
     }
 
+    public void setLinkedIdTask(IDTask linkedIdTask) {
+        this.linkedIdTask = linkedIdTask;
+    }
 }
