@@ -1,7 +1,7 @@
 package com.alvaria.loremipsum.redblacktree;
 
 /**
- * The {@code RedBlackTree}  class represents a Red-Black tree that allows to
+ * The {@code RedBlackTree} class represents a Red-Black tree that allows to
  * search/insert/delete nodes with logarithmic complexity *
  */
 public class RedBlackTree<V extends Comparable<V>> {
@@ -10,7 +10,7 @@ public class RedBlackTree<V extends Comparable<V>> {
     /**
      * Finds the given value in the tree
      * @param value to find
-     * @return {@code Node} of given value if found
+     * @return {@code Node} of given value if found;
      *         {@code null} otherwise
      */
     public Node<V> findValue(V value) {
@@ -68,7 +68,7 @@ public class RedBlackTree<V extends Comparable<V>> {
 
     /**
      * Find the minimum Node
-     * @return {@code node} if found
+     * @return {@code node} if found;
      *         {@code null} otherwise
      */
     public Node<V> findMinimum() {
@@ -77,7 +77,7 @@ public class RedBlackTree<V extends Comparable<V>> {
 
     /**
      * Find the maximum Node
-     * @return {@code node} if found
+     * @return {@code node} if found;
      *         {@code null} otherwise
      */
     public Node<V> findMaximum() {
@@ -86,7 +86,7 @@ public class RedBlackTree<V extends Comparable<V>> {
 
     /**
      * Find the maximum value AND delete its node
-     * @return {@code value} if the tree is not empty
+     * @return {@code value} if the tree is not empty;
      *         {@code null} otherwise
      */
     public V pollMaximum() {
@@ -98,7 +98,7 @@ public class RedBlackTree<V extends Comparable<V>> {
 
     /**
      * Find the minimum value AND delete its node
-     * @return {@code value} if the tree is not empty
+     * @return {@code value} if the tree is not empty;
      *         {@code null} otherwise
      */
     public V pollMinimum() {
@@ -110,7 +110,7 @@ public class RedBlackTree<V extends Comparable<V>> {
 
     /**
      * Delete the node of the given value (if exists)
-     * @param value
+     * @param value to be deleted
      */
     public void deleteNode(V value) {
         Node<V> node = root;

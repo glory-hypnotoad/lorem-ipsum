@@ -1,7 +1,7 @@
 package com.alvaria.loremipsum.tasks;
 
 /**
- * The {@code Task} class represents a single task that can be queued.
+ * The {@code RankedTask} class represents a single task that can be queued.
  * Task objects can be compared using their class (depends on the ID) and age.
  * This class is used for red-black tree that is sorted based on the Task rank
  * and allows to search for a Task with the highest rank with logarithmic
@@ -9,7 +9,7 @@ package com.alvaria.loremipsum.tasks;
  *
  * @author Nikita Nikolaev
  */
-public class Task extends BaseTask {
+public class RankedTask implements Comparable<RankedTask>{
 
     private enum TaskClass {
         NORMAL,
@@ -18,11 +18,12 @@ public class Task extends BaseTask {
         MANAGEMENT_OVERRIDE
     }
 
+    private Long id;
     private Long enqueueTime;
     private TaskClass taskClass;
 
-    public Task(Long id, Long enqueueTime) {
-        super(id);
+    public RankedTask(Long id, Long enqueueTime) {
+        this.id = id;
         this.enqueueTime = enqueueTime;
 
         if ((id % 3 == 0) && (id % 5 == 0)) {
@@ -37,7 +38,7 @@ public class Task extends BaseTask {
     }
 
     /**
-     * Returns the actual Task's rank depending on the taskClass
+     * Returns the actual RankedTask's rank depending on the taskClass
      * and age. Note that this is not enough to compare the Task
      * objects as TaskClass.MANAGEMENT_OVERRIDE must always have
      * higher priority.
@@ -61,20 +62,14 @@ public class Task extends BaseTask {
     }
 
     /**
-     * Compares two Task objects
-     * @param otherBaseTask the object to be compared.
+     * Compares two RankedTask objects
+     * @param otherTask the object to be compared.
      * @return {@code 1} if this object is greater than the specified object;
      *         {@code -1} if this object is less than the specified object;
      *         {@code 0} if the objects are equal.
      */
     @Override
-    public int compareTo(BaseTask otherBaseTask) {
-        Task otherTask;
-        if (!(otherBaseTask instanceof Task)) {
-            throw new IllegalArgumentException("Cannot compare BaseTask and Task objects");
-        } else {
-            otherTask = (Task)otherBaseTask;
-        }
+    public int compareTo(RankedTask otherTask) {
 
         if ((this.taskClass == TaskClass.MANAGEMENT_OVERRIDE) && (otherTask.taskClass != TaskClass.MANAGEMENT_OVERRIDE)) {
             return 1;
