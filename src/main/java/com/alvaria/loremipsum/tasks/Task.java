@@ -84,6 +84,14 @@ public class Task extends BaseTask {
             return 1;
         } else if (this.getCurrentRank() < otherTask.getCurrentRank()) {
             return -1;
+        } else
+            // If the ranks are equal we still need to be able to insert the task into RB-tree.
+            // Therefore, we define the following logic so that two tasks with the same rank but
+            // with different IDs could be compared:
+            if (this.id > otherTask.id) {
+            return 1;
+        } else if (this.id < otherTask.id) {
+            return -1;
         } else {
             return 0;
         }

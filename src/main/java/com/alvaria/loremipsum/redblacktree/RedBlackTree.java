@@ -31,7 +31,7 @@ public class RedBlackTree<V extends Comparable<V>> {
             } else if (value.compareTo(node.data) > 0) {
                 node = node.right;
             } else {
-                throw new IllegalArgumentException("RedBlackTree: Node already exists");
+                throw new IllegalArgumentException("RedBlackTree:insertNode(): Node already exists");
             }
         }
 
@@ -48,30 +48,49 @@ public class RedBlackTree<V extends Comparable<V>> {
         newNode.parent = parent;
 
         // Finally, need to repair the Red-Black properties of the tree
-        repairRedBlackProperties(newNode);
+        repairRedBlackPropertiesAfterInsert(newNode);
     }
 
     public Node<V> findMinimum() {
-        Node<V> node = root;
-        while (node.left != null) {
-            node = node.left;
-        }
-
-        return node;
+        return findMinimum(root);
     }
 
     public Node<V> findMaximum() {
+        return findMaximum(root);
+    }
+
+    public V pollMaximum() {
+        Node<V> max = findMaximum();
+        V data = max.data;
+        deleteNode(max);
+        return data;
+    }
+
+    public V pollMinimum() {
+        Node<V> min = findMinimum();
+        V data = min.data;
+        deleteNode(min);
+        return data;
+    }
+
+    public void deleteNode(V value) {
         Node<V> node = root;
-        while (node.right != null) {
-            node = node.right;
+
+        // Search for the node to be deleted
+        while (node != null && node.data != value) {
+            if (node.data.compareTo(value) < 0) {
+                node = node.right;
+            } else {
+                node = node.left;
+            }
         }
 
-        return node;
+        deleteNode(node);
     }
 
     // ---------------------------- Private methods ----------------------------
 
-    private void repairRedBlackProperties(Node<V> node) {
+    private void repairRedBlackPropertiesAfterInsert(Node<V> node) {
         Node<V> parent = node.parent;
 
         if (parent == null) {
@@ -101,7 +120,7 @@ public class RedBlackTree<V extends Comparable<V>> {
             uncle.color = Node.Color.BLACK;
             grandparent.color = Node.Color.RED;
 
-            repairRedBlackProperties(grandparent);
+            repairRedBlackPropertiesAfterInsert(grandparent);
         } else if (parent == grandparent.left) { // If parent is LEFT child of grandparent
             // If uncle is BLACK (or null which is the same) and node is "inner" child
             if (node == parent.right) {
@@ -133,8 +152,88 @@ public class RedBlackTree<V extends Comparable<V>> {
             parent.color = Node.Color.BLACK;
             grandparent.color = Node.Color.RED;
         }
+    }
 
+    private void repairRedBlackPropertiesAfterDelete(Node<V> node) {
+        if (node.parent == null) {
+            // node is root; simply repaint it BLACK
+            node.color = Node.Color.BLACK;
+            return;
+        }
 
+        Node<V> sibling = getSibling(node);
+
+        // Sibling is RED
+        if (sibling.color == Node.Color.RED) {
+            handleRedSibling(node, sibling);
+            // Get new sibling for fall-through to the next case
+            // Note that it is BLACK as it was a child of the original RED sibling
+            sibling = getSibling(node);
+        }
+
+        // Case: BLACK sibling with two BLACK children
+        if (isBlack(sibling.left) && isBlack(sibling.right)) {
+            sibling.color = Node.Color.RED;
+
+            // Case: Black sibling with two black children AND red parent
+            if (node.parent.color == Node.Color.RED) {
+                node.parent.color = Node.Color.BLACK;
+            }
+
+            // Case: Black sibling with two black children AND black parent
+            else {
+                repairRedBlackPropertiesAfterDelete(node.parent);
+            }
+        }
+
+        // Case: Black sibling with at least one red child
+        else {
+            handleBlackSiblingWithAtLeastOneRedChild(node, sibling);
+        }
+
+    }
+
+    private void handleRedSibling(Node<V> node, Node<V> sibling) {
+        // Repaint the sibling and parent
+        sibling.color = Node.Color.BLACK;
+        node.parent.color = Node.Color.RED;
+
+        // ...and rotate
+        if (node == node.parent.left) {
+            rotateLeft(node.parent);
+        } else {
+            rotateRight(node.parent);
+        }
+    }
+
+    private void handleBlackSiblingWithAtLeastOneRedChild(Node<V> node, Node<V> sibling) {
+        boolean nodeIsLeftChild = node == node.parent.left;
+
+        // Case: Black sibling with at least one red child AND "outer nephew" is BLACK
+        // Repaint sibling and its child, and rotate around sibling
+        if (nodeIsLeftChild && isBlack(sibling.right)) {
+            sibling.left.color = Node.Color.BLACK;
+            sibling.color = Node.Color.RED;
+            rotateRight(sibling);
+            sibling = node.parent.right;
+        } else if (!nodeIsLeftChild && isBlack(sibling.left)) {
+            sibling.right.color = Node.Color.BLACK;
+            sibling.color = Node.Color.RED;
+            rotateLeft(sibling);
+            sibling = node.parent.left;
+        }
+
+        // Case: Black sibling with at least one red child AND "outer nephew" is RED
+        // Repaint sibling + parent + sibling's child, and rotate around parent
+        sibling.color = node.parent.color;
+        node.parent.color = Node.Color.BLACK;
+        if (nodeIsLeftChild) {
+            sibling.right.color = Node.Color.BLACK;
+            rotateLeft(node.parent);
+        } else {
+            sibling.left.color = Node.Color.BLACK;
+            rotateRight(node.parent);
+        }
     }
 
     private Node<V> getUncle(Node<V> parent) {
@@ -145,7 +244,7 @@ public class RedBlackTree<V extends Comparable<V>> {
         } else if (grandparent.right == parent) {
             return grandparent.left;
         } else {
-            throw new IllegalStateException("RedBlackTree: The parent is not a child of grandparent");
+            throw new IllegalStateException("RedBlackTree:getUncle(): The parent is not a child of grandparent");
         }
     }
 
@@ -187,11 +286,107 @@ public class RedBlackTree<V extends Comparable<V>> {
         } else if (parent.right == oldChild) {
             parent.right = newChild;
         } else {
-            throw new IllegalStateException("RedBlackTree: node is not a child of its parent");
+            throw new IllegalStateException("RedBlackTree:replaceParentsChild(): node is not a child of its parent");
         }
 
         if (newChild != null) {
             newChild.parent = parent;
+        }
+    }
+
+    private Node<V> findMinimum(Node<V> node) {
+        while (node.left != null) {
+            node = node.left;
+        }
+
+        return node;
+    }
+
+    private Node<V> findMaximum(Node<V> node) {
+        while (node.right != null) {
+            node = node.right;
+        }
+
+        return node;
+    }
+
+    // Keep the following method private as we need to be sure that the
+    // node is actually the part of the tree
+    private void deleteNode (Node<V> node) {
+        if (node == null) {
+            return;
+        }
+
+        Node<V> movedUpNode; // The node where we start repairing the RB properties after deletion
+        Node.Color deletedNodeColor;
+
+        // Node has zero or one child
+        if (node.left == null || node.right == null) {
+            movedUpNode = deleteNodeWithZeroOrOneChild(node);
+            deletedNodeColor = node.color;
+        }
+        // Node has two children
+        else {
+            // Find minimum node of right subtree ("inorder successor" of current node)
+            Node<V> inOrderSuccessor = findMinimum(node.right);
+
+            // Copy inorder successor's data to current node (keep its color!)
+            node.data = inOrderSuccessor.data;
+
+            // Delete inorder successor just as we would delete a node with 0 or 1 child
+            movedUpNode = deleteNodeWithZeroOrOneChild(inOrderSuccessor);
+            deletedNodeColor = inOrderSuccessor.color;
+        }
+
+        if (deletedNodeColor == Node.Color.BLACK) {
+            repairRedBlackPropertiesAfterDelete(movedUpNode);
+
+            // Remove the temporary nil node
+            if (movedUpNode.getClass() == NilNode.class) {
+                replaceParentsChild(movedUpNode.parent, movedUpNode, null);
+            }
+        }
+    }
+
+    private Node<V> deleteNodeWithZeroOrOneChild(Node<V> node) {
+        // If the node has only one child then replace it with this child
+        if (node.left != null) {
+            replaceParentsChild(node.parent, node, node.left);
+            return node.left; // moved-up node
+        } else if (node.right != null) {
+            replaceParentsChild(node.parent, node, node.right);
+            return node.right; // moved-up node
+        }
+
+        // If node has no children then:
+        // If the node is RED then simply delete it
+        // If the node is BLACK then replace it with a temporary NilNode that is used to repair RB properties
+        else {
+            Node<V> newChild = (node.color == Node.Color.BLACK) ? new NilNode() : null;
+            replaceParentsChild(node.parent, node, newChild);
+            return newChild;
+        }
+    }
+
+    private class NilNode extends Node<V> {
+        private NilNode() {
+            super(null);
+            this.color = Color.BLACK;
+        }
+    }
+
+    private boolean isBlack(Node<V> node) {
+        return node == null || node.color == Node.Color.BLACK;
+    }
+
+    private Node<V> getSibling(Node<V> node) {
+        Node<V> parent = node.parent;
+        if (node == parent.left) {
+            return parent.right;
+        } else if (node == parent.right) {
+            return parent.left;
+        } else {
+            throw new IllegalStateException("RedBlackTree:getSibling(): Node is not a child of its parent");
         }
     }
 }
