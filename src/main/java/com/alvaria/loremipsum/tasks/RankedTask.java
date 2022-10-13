@@ -1,5 +1,7 @@
 package com.alvaria.loremipsum.tasks;
 
+import java.time.Instant;
+
 /**
  * The {@code RankedTask} class represents a single task that can be queued.
  * Task objects can be compared using their class (depends on the ID) and age.
@@ -47,19 +49,14 @@ public class RankedTask implements Comparable<RankedTask>{
      * @return current rank depending on the task class and age
      */
     private double getCurrentRank() {
-        Long currentTime = System.currentTimeMillis() / 1000L;
-        Long secondsInQueue = currentTime - enqueueTime;
+        Long currentTime = Instant.now().getEpochSecond();
+        long secondsInQueue = currentTime - enqueueTime;
 
-        switch (taskClass) {
-            case VIP:
-                return Math.max(4.0, 2 * secondsInQueue * Math.log(secondsInQueue));
-
-            case PRIORITY:
-                return  Math.max(3.0, secondsInQueue * Math.log(secondsInQueue));
-
-            default:
-                return (double)secondsInQueue;
-        }
+        return switch (taskClass) {
+            case VIP -> Math.max(4.0, 2 * secondsInQueue * Math.log(secondsInQueue));
+            case PRIORITY -> Math.max(3.0, secondsInQueue * Math.log(secondsInQueue));
+            default -> (double) secondsInQueue;
+        };
     }
 
     /**
@@ -84,13 +81,7 @@ public class RankedTask implements Comparable<RankedTask>{
             // If the ranks are equal we still need to be able to insert the task into RB-tree.
             // Therefore, we define the following logic so that two tasks with the same rank but
             // with different IDs could be compared:
-            if (this.id > otherTask.id) {
-            return 1;
-        } else if (this.id < otherTask.id) {
-            return -1;
-        } else {
-            return 0;
-        }
+            return this.id.compareTo(otherTask.id);
     }
 
     public Long getId() {

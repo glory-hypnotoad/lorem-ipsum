@@ -59,6 +59,7 @@ public class RedBlackTree<V extends Comparable<V>> {
         if (parent == null) {
             // The tree is empty, simply put the new value to the root
             root = new Node<V>(value);
+            root.color = Node.Color.BLACK;
         } else if (value.compareTo(parent.data) < 0) {
             parent.left = newNode;
         } else {
