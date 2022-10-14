@@ -11,7 +11,6 @@ import java.util.List;
  */
 public class RedBlackTree<V extends Comparable<V>> {
     private Node<V> root;
-    private int size; // Tree size
 
     public RedBlackTree() {
         root = null;
@@ -72,8 +71,6 @@ public class RedBlackTree<V extends Comparable<V>> {
             parent.right = newNode;
         }
         newNode.parent = parent;
-
-        size++;
 
         // Finally, need to repair the Red-Black properties of the tree
         repairRedBlackPropertiesAfterInsert(newNode);
@@ -423,8 +420,6 @@ public class RedBlackTree<V extends Comparable<V>> {
                 replaceParentsChild(movedUpNode.parent, movedUpNode, null);
             }
         }
-
-        size--;
     }
 
     private Node<V> deleteNodeWithZeroOrOneChild(Node<V> node) {

@@ -96,6 +96,30 @@ public class LoremIpsumApplication extends SpringBootServletInitializer {
         }
     }
 
+    @DeleteMapping("/task/{id}")
+    public @ResponseBody ResponseEntity<?> deleteTask(@PathVariable Long id) {
+        String methodName = "deleteTask";
+        log.info("{}: Deleting the task from queue: {}", methodName, id);
+        TaskPriorityQueue.Status status = queue.deleteTask(id);
+        if (status == TaskPriorityQueue.Status.S_OK) {
+            log.info("{}: Task {} deleted", methodName, id);
+            return ResponseEntity.status(HttpStatus.OK).build();
+        } else {
+            log.info("{}: Task {} not found", methodName, id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    @GetMapping("/ewt")
+    public @ResponseBody ResponseEntity<?> getEWT() {
+        String methodName = "getEWT";
+        log.info("{}: Getting the average waiting time in the queue", methodName);
+        Long ewt = queue.getExpectedWaitTime();
+        JSONObject obj = new JSONObject();
+        obj.put("EWT", ewt);
+        return ResponseEntity.status(HttpStatus.OK).body(obj.toString());
+    }
+
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
         return builder.sources(LoremIpsumApplication.class);

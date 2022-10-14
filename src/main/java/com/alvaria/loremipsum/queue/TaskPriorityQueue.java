@@ -24,8 +24,14 @@ import java.util.List;
 @Slf4j
 @Component
 public class TaskPriorityQueue {
+
+    // Maximum supported queue size
+    private static final int MAX_SIZE = 1000;
     final RedBlackTree<IDTask> idTaskTree;
     final RedBlackTree<RankedTask> rankedTaskTree;
+
+    int n; // Queue size
+    Long sumEnqueueTime; // Sum of all enqueue times; cannot be overflowed as MAX_SIZE is reasonably low
 
     /**
      * Possible operation statuses
@@ -35,7 +41,8 @@ public class TaskPriorityQueue {
         E_NEGATIVE_ID,
         E_INVALID_ENQUEUE_TIME,
         E_ID_ALREADY_EXISTS,
-        E_RANKED_TASK_ALREADY_EXISTS
+        E_RANKED_TASK_ALREADY_EXISTS,
+        E_TASK_NOT_FOUND
     }
 
     /**
@@ -44,6 +51,8 @@ public class TaskPriorityQueue {
     public TaskPriorityQueue() {
         idTaskTree = new RedBlackTree<>();
         rankedTaskTree = new RedBlackTree<>();
+        n = 0;
+        sumEnqueueTime = 0L;
     }
 
     /**
@@ -88,6 +97,8 @@ public class TaskPriorityQueue {
                 try {
                     log.info("{}: inserting new node to the ranked task tree", methodName);
                     rankedTaskTree.insertNode(newRankedTask);
+                    n++;
+                    sumEnqueueTime += enqueueTime;
                     log.info("{}: node inserted successfully", methodName);
                 } catch (IllegalArgumentException ex) {
                     // Report this as an error because the trees are out of sync if we didn't get
@@ -101,6 +112,11 @@ public class TaskPriorityQueue {
         return Status.S_OK;
     }
 
+    /**
+     * Gets the highest-ranked task from the queue and deletes
+     * (dequeues) it from both trees
+     * @return The highest-ranked task
+     */
     public RankedTask poll() {
         String methodName = "poll";
         synchronized (idTaskTree) {
@@ -110,6 +126,19 @@ public class TaskPriorityQueue {
                 if (task != null) {
                     log.info("{}: Task found - deleting the linked task from ID tree", methodName);
                     idTaskTree.deleteNode(task.getLinkedIdTask());
+                    n--;
+                    if (n < 0) {
+                        log.error("{}: Queue size is negative; resetting", methodName);
+                        // TODO: For some robustness it may be worth implementing a method
+                        //  that calculates the queue size in case of invalid size
+                        n = 0;
+                    }
+
+                    sumEnqueueTime -= task.getEnqueueTime();
+                    if (sumEnqueueTime < 0) {
+                        log.error("{}: Sum enqueue time is negative; resetting", methodName);
+                        sumEnqueueTime = 0L;
+                    }
                     return task;
                 } else {
                     log.info("{}: The tree is empty", methodName);
@@ -118,6 +147,8 @@ public class TaskPriorityQueue {
             }
         }
     }
+
+
 
     /**
      * Get the list of all tasks in the queue sorted from the highest rank to lowest
@@ -160,6 +191,62 @@ public class TaskPriorityQueue {
                 RankedTask rankedTask = idNode.getData().getLinkedRankedTask();
                 return taskList.indexOf(rankedTask);
             }
+        }
+    }
+
+    /**
+     * Delete a task with the given ID
+     * @param id to delete
+     * @return Status of the operation: {@code Status.S_OK} if deleted;
+     *         {@code Status.E_TASK_NOT_FOUND} if the ID was not found
+     */
+    public Status deleteTask(Long id) {
+        String methodName = "deleteTask";
+        log.info("{}: Trying to delete task: {}", methodName, id);
+        IDTask idTask = new IDTask(id);
+        synchronized (idTaskTree) {
+            synchronized (rankedTaskTree) {
+                Node<IDTask> idNode = idTaskTree.findValue(idTask);
+                if (idNode != null) {
+                    log.info("{}: Task {} found, deleting", methodName, id);
+                    rankedTaskTree.deleteNode(idNode.getData().getLinkedRankedTask());
+                    idTaskTree.deleteNode(idTask);
+                    n--;
+                    if (n < 0) {
+                        log.error("{}: Queue size is negative; resetting", methodName);
+                        n = 0;
+                    }
+
+                    sumEnqueueTime -= idNode.getData().getLinkedRankedTask().getEnqueueTime();
+                    if (sumEnqueueTime < 0) {
+                        log.error("{}: Sum enqueue time is negative; resetting", methodName);
+                        sumEnqueueTime = 0L;
+                    }
+
+                    return Status.S_OK;
+                } else {
+                    log.info("{}: Task {} NOT found", methodName, id);
+                    return Status.E_TASK_NOT_FOUND;
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the average (mean) number of seconds that
+     * each ID has been waiting in the queue.
+     * @return Expected Wait Time (zero if the queue is empty)
+     */
+    public Long getExpectedWaitTime() {
+        String methodName = "getExpectedWaitTime";
+        log.info("{}: Getting the average wait time in the queue", methodName);
+        if (n == 0) {
+            log.info("{}: Queue is empty; returning zero", methodName);
+            return 0L;
+        } else {
+            long currentTime = Instant.now().getEpochSecond();
+            log.info("{}: Queue is NOT empty; size: {}; sumEnqueueTime: {}; currentUtcTime: {}", methodName, n, sumEnqueueTime, currentTime);
+            return currentTime - (sumEnqueueTime / n);
         }
     }
 
