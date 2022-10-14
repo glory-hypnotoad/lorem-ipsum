@@ -1,11 +1,17 @@
 package com.alvaria.loremipsum.redblacktree;
 
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * The {@code RedBlackTree} class represents a Red-Black tree that allows to
  * search/insert/delete nodes with logarithmic complexity *
  */
 public class RedBlackTree<V extends Comparable<V>> {
     private Node<V> root;
+    private int size; // Tree size
 
     public RedBlackTree() {
         root = null;
@@ -67,6 +73,8 @@ public class RedBlackTree<V extends Comparable<V>> {
         }
         newNode.parent = parent;
 
+        size++;
+
         // Finally, need to repair the Red-Black properties of the tree
         repairRedBlackPropertiesAfterInsert(newNode);
     }
@@ -96,9 +104,13 @@ public class RedBlackTree<V extends Comparable<V>> {
      */
     public V pollMaximum() {
         Node<V> max = findMaximum();
-        V data = max.data;
-        deleteNode(max);
-        return data;
+        if (max != null) {
+            V data = max.data;
+            deleteNode(max);
+            return data;
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -108,9 +120,13 @@ public class RedBlackTree<V extends Comparable<V>> {
      */
     public V pollMinimum() {
         Node<V> min = findMinimum();
-        V data = min.data;
-        deleteNode(min);
-        return data;
+        if (min != null) {
+            V data = min.data;
+            deleteNode(min);
+            return data;
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -130,6 +146,15 @@ public class RedBlackTree<V extends Comparable<V>> {
         }
 
         deleteNode(node);
+    }
+
+    /**
+     * Build an array of elements sorted from min to max
+     * @return Sorted array of elements
+     */
+    public List<V> buildNodeList() {
+        List<V> result = buildSubtreeList(root);
+        return result;
     }
 
     // ---------------------------- Private methods ----------------------------
@@ -398,6 +423,8 @@ public class RedBlackTree<V extends Comparable<V>> {
                 replaceParentsChild(movedUpNode.parent, movedUpNode, null);
             }
         }
+
+        size--;
     }
 
     private Node<V> deleteNodeWithZeroOrOneChild(Node<V> node) {
@@ -440,5 +467,34 @@ public class RedBlackTree<V extends Comparable<V>> {
         } else {
             throw new IllegalStateException("RedBlackTree:getSibling(): Node is not a child of its parent");
         }
+    }
+
+    private List<V> buildSubtreeList(Node<V> node) {
+        List<V> leftList = new ArrayList<>();
+        List<V> rightList = new ArrayList<>();
+        List<V> result = new ArrayList<>();
+        if (node == null) {
+            return null;
+        }
+
+        if (node.left != null) {
+            leftList = buildSubtreeList(node.left);
+        }
+
+        if (node.right != null) {
+            rightList = buildSubtreeList(node.right);
+        }
+
+        if (!leftList.isEmpty()) {
+            result.addAll(leftList);
+        }
+
+        result.add(node.data);
+
+        if (!rightList.isEmpty()) {
+            result.addAll(rightList);
+        }
+
+        return result;
     }
 }

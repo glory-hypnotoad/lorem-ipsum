@@ -1,5 +1,9 @@
 package com.alvaria.loremipsum.tasks;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import netscape.javascript.JSObject;
+import org.json.JSONObject;
+
 import java.time.Instant;
 
 /**
@@ -23,6 +27,8 @@ public class RankedTask implements Comparable<RankedTask>{
     private Long id;
     private Long enqueueTime;
     private TaskClass taskClass;
+
+    @JsonIgnore
     private IDTask linkedIdTask;
 
     public RankedTask(Long id, Long enqueueTime) {
@@ -95,4 +101,9 @@ public class RankedTask implements Comparable<RankedTask>{
     public void setLinkedIdTask(IDTask linkedIdTask) {
         this.linkedIdTask = linkedIdTask;
     }
+
+    public IDTask getLinkedIdTask() {
+        return linkedIdTask;
+    }
+
 }

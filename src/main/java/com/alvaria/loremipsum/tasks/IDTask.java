@@ -1,5 +1,7 @@
 package com.alvaria.loremipsum.tasks;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * The {@code IDTask} is a class for comparing the Task objects using their ID.
  * This class is used for red-black tree that is sorted based on the Task ID and
@@ -10,6 +12,7 @@ package com.alvaria.loremipsum.tasks;
 public class IDTask implements Comparable<IDTask> {
 
     private Long id;
+    @JsonIgnore
     private RankedTask linkedRankedTask; // used to find the corresponding task object if another red-black tree
 
     public IDTask(Long id) {
@@ -43,5 +46,9 @@ public class IDTask implements Comparable<IDTask> {
 
     public void setLinkedRankedTask(RankedTask linkedRankedTask) {
         this.linkedRankedTask = linkedRankedTask;
+    }
+
+    public RankedTask getLinkedRankedTask() {
+        return linkedRankedTask;
     }
 }

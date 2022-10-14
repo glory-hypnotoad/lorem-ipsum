@@ -24,4 +24,8 @@ public class Node<V extends Comparable<V>> {
         this.parent = null;
         this.color = Color.RED;
     }
+
+    public V getData() {
+        return data;
+    }
 }
