@@ -112,7 +112,9 @@ public class LoremIpsumApplication extends SpringBootServletInitializer {
             return ResponseEntity.status(HttpStatus.OK).build();
         } else {
             log.info("{}: Task {} not found", methodName, id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            JSONObject obj = new JSONObject();
+            obj.put("status", status);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(obj.toString());
         }
     }
 
