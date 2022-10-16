@@ -1,6 +1,7 @@
 package com.alvaria.loremipsum.tasks;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.extern.slf4j.Slf4j;
 import netscape.javascript.JSObject;
 import org.json.JSONObject;
 
@@ -15,18 +16,21 @@ import java.time.Instant;
  *
  * @author Nikita Nikolaev
  */
+@Slf4j
 public class RankedTask implements Comparable<RankedTask>{
 
-    private enum TaskClass {
+    public enum TaskClass {
         NORMAL,
         PRIORITY,
         VIP,
         MANAGEMENT_OVERRIDE
     }
 
-    private Long id;
-    private Long enqueueTime;
-    private TaskClass taskClass;
+    private final Long id;
+    private final Long enqueueTime;
+
+    @JsonIgnore
+    private final TaskClass taskClass;
 
     @JsonIgnore
     private IDTask linkedIdTask;
@@ -54,7 +58,7 @@ public class RankedTask implements Comparable<RankedTask>{
      *
      * @return current rank depending on the task class and age
      */
-    private double getCurrentRank() {
+    public double getCurrentRank() {
         Long currentTime = Instant.now().getEpochSecond();
         long secondsInQueue = currentTime - enqueueTime;
 
@@ -74,20 +78,8 @@ public class RankedTask implements Comparable<RankedTask>{
      */
     @Override
     public int compareTo(RankedTask otherTask) {
-
-        if ((this.taskClass == TaskClass.MANAGEMENT_OVERRIDE) && (otherTask.taskClass != TaskClass.MANAGEMENT_OVERRIDE)) {
-            return 1;
-        } else if ((this.taskClass != TaskClass.MANAGEMENT_OVERRIDE) && (otherTask.taskClass == TaskClass.MANAGEMENT_OVERRIDE)) {
-            return -1;
-        } else if (this.getCurrentRank() > otherTask.getCurrentRank()) {
-            return 1;
-        } else if (this.getCurrentRank() < otherTask.getCurrentRank()) {
-            return -1;
-        } else
-            // If the ranks are equal we still need to be able to insert the task into RB-tree.
-            // Therefore, we define the following logic so that two tasks with the same rank but
-            // with different IDs could be compared:
-            return this.id.compareTo(otherTask.id);
+        // The older task must be ranked higher
+        return otherTask.enqueueTime.compareTo(this.enqueueTime);
     }
 
     public Long getId() {
@@ -106,4 +98,7 @@ public class RankedTask implements Comparable<RankedTask>{
         return linkedIdTask;
     }
 
+    public TaskClass getTaskClass() {
+        return taskClass;
+    }
 }

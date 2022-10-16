@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -28,7 +29,10 @@ public class TaskPriorityQueue {
     // Maximum supported queue size
     private static final int MAX_SIZE = 1000;
     final RedBlackTree<IDTask> idTaskTree;
-    final RedBlackTree<RankedTask> rankedTaskTree;
+    final RedBlackTree<RankedTask> overrideTaskTree;
+    final RedBlackTree<RankedTask> vipTaskTree;
+    final RedBlackTree<RankedTask> priorityTaskTree;
+    final RedBlackTree<RankedTask> normalTaskTree;
 
     int n; // Queue size
     Long sumEnqueueTime; // Sum of all enqueue times; cannot be overflowed as MAX_SIZE is reasonably low
@@ -42,7 +46,8 @@ public class TaskPriorityQueue {
         E_INVALID_ENQUEUE_TIME,
         E_ID_ALREADY_EXISTS,
         E_RANKED_TASK_ALREADY_EXISTS,
-        E_TASK_NOT_FOUND
+        E_TASK_NOT_FOUND,
+        E_QUEUE_FULL
     }
 
     /**
@@ -50,7 +55,10 @@ public class TaskPriorityQueue {
      */
     public TaskPriorityQueue() {
         idTaskTree = new RedBlackTree<>();
-        rankedTaskTree = new RedBlackTree<>();
+        overrideTaskTree = new RedBlackTree<>();
+        vipTaskTree = new RedBlackTree<>();
+        priorityTaskTree = new RedBlackTree<>();
+        normalTaskTree = new RedBlackTree<>();
         n = 0;
         sumEnqueueTime = 0L;
     }
@@ -65,6 +73,7 @@ public class TaskPriorityQueue {
         String methodName = "addNewTask";
 
         log.info("{}: Trying to add a new Task: id = {}, enqueueTime = {}", methodName, id, enqueueTime);
+
 
         Status status = validateId(id);
         if (status != Status.S_OK) {
@@ -84,28 +93,47 @@ public class TaskPriorityQueue {
         newRankedTask.setLinkedIdTask(newIdTask);
 
         synchronized (idTaskTree) {
-            synchronized (rankedTaskTree) {
-                try {
-                    log.info("{}: inserting new node to the ID tree", methodName);
-                    idTaskTree.insertNode(newIdTask);
-                    log.info("{}: node inserted successfully", methodName);
-                } catch (IllegalArgumentException ex) {
-                    log.warn("{}: The task with the specified ID already exists", methodName);
-                    return Status.E_ID_ALREADY_EXISTS;
-                }
+            if (n >= MAX_SIZE) {
+                log.info("{}: Max queue size reached", methodName);
+                return Status.E_QUEUE_FULL;
+            }
 
-                try {
-                    log.info("{}: inserting new node to the ranked task tree", methodName);
-                    rankedTaskTree.insertNode(newRankedTask);
-                    n++;
-                    sumEnqueueTime += enqueueTime;
-                    log.info("{}: node inserted successfully", methodName);
-                } catch (IllegalArgumentException ex) {
-                    // Report this as an error because the trees are out of sync if we didn't get
-                    // this exception on the previous step
-                    log.error("{}: and equal ranked task already exists", methodName);
-                    return Status.E_RANKED_TASK_ALREADY_EXISTS;
+            try {
+                log.info("{}: inserting new node to the ID tree", methodName);
+                idTaskTree.insertNode(newIdTask);
+                log.info("{}: node inserted successfully", methodName);
+            } catch (IllegalArgumentException ex) {
+                log.warn("{}: The task with the specified ID already exists", methodName);
+                return Status.E_ID_ALREADY_EXISTS;
+            }
+
+            RankedTask.TaskClass newTaskClass =newRankedTask.getTaskClass();
+
+            try {
+                log.info("{}: inserting new node to the corresponding ranked task tree", methodName);
+
+                switch (newTaskClass) {
+                    case MANAGEMENT_OVERRIDE -> {
+                        synchronized (overrideTaskTree) { overrideTaskTree.insertNode(newRankedTask); }
+                    }
+                    case VIP -> {
+                        synchronized(vipTaskTree) { vipTaskTree.insertNode(newRankedTask); }
+                    }
+                    case PRIORITY -> {
+                        synchronized (priorityTaskTree) { priorityTaskTree.insertNode(newRankedTask); }
+                    }
+                    default -> {
+                        synchronized (normalTaskTree) { normalTaskTree.insertNode(newRankedTask); }
+                    }
                 }
+                n++;
+                sumEnqueueTime += enqueueTime;
+                log.info("{}: node inserted successfully", methodName);
+            } catch (IllegalArgumentException ex) {
+                // Report this as an error because the trees are out of sync if we didn't get
+                // this exception on the previous step
+                log.error("{}: and equal ranked task already exists", methodName);
+                return Status.E_RANKED_TASK_ALREADY_EXISTS;
             }
         }
 
@@ -119,32 +147,90 @@ public class TaskPriorityQueue {
      */
     public RankedTask poll() {
         String methodName = "poll";
-        synchronized (idTaskTree) {
-            synchronized (rankedTaskTree) {
-                log.info("{}: Polling the ranked tree", methodName);
-                RankedTask task = rankedTaskTree.pollMaximum();
-                if (task != null) {
-                    log.info("{}: Task found - deleting the linked task from ID tree", methodName);
-                    idTaskTree.deleteNode(task.getLinkedIdTask());
-                    n--;
-                    if (n < 0) {
-                        log.error("{}: Queue size is negative; resetting", methodName);
-                        // TODO: For some robustness it may be worth implementing a method
-                        //  that calculates the queue size in case of invalid size
-                        n = 0;
-                    }
+        RankedTask task = null;
 
-                    sumEnqueueTime -= task.getEnqueueTime();
-                    if (sumEnqueueTime < 0) {
-                        log.error("{}: Sum enqueue time is negative; resetting", methodName);
-                        sumEnqueueTime = 0L;
+        synchronized (idTaskTree) {
+            log.info("{}: Polling the ranked tree", methodName);
+            synchronized (overrideTaskTree) {
+                task = overrideTaskTree.pollMaximum();
+            }
+
+            if (task != null) {
+                log.info("{}: Management Override Task found - deleting the linked task from ID tree", methodName);
+                idTaskTree.deleteNode(task.getLinkedIdTask());
+            } else {
+                RankedTask vipTask = null;
+                RankedTask priorityTask = null;
+                RankedTask normalTask = null;
+
+                synchronized (vipTaskTree) {
+                    synchronized (priorityTaskTree) {
+                        synchronized (normalTaskTree) {
+                            vipTask = vipTaskTree.findMaxData();
+                            priorityTask = priorityTaskTree.findMaxData();
+                            normalTask = normalTaskTree.findMaxData();
+
+                            double vipRank = -1.0;
+                            double priorityRank = -1.0;
+                            double normalRank = -1.0;
+
+                            if (vipTask != null) {
+                                vipRank = vipTask.getCurrentRank();
+                            }
+
+                            if (priorityTask != null) {
+                                priorityRank = priorityTask.getCurrentRank();
+                            }
+
+                            if (normalTask != null) {
+                                normalRank = normalTask.getCurrentRank();
+                            }
+
+                            if (vipRank > 0.0 && vipRank >= priorityRank && vipRank >= normalRank) {
+                                log.info("{}: VIP Task found - deleting the linked task from ID tree", methodName);
+                                idTaskTree.deleteNode(vipTask.getLinkedIdTask());
+                                vipTaskTree.deleteNode(vipTask);
+                                task = vipTask;
+                            }
+
+                            if (priorityRank > 0.0 && priorityRank >= vipRank && priorityRank >= normalRank) {
+                                log.info("{}: Priority Task found - deleting the linked task from ID tree", methodName);
+                                idTaskTree.deleteNode(priorityTask.getLinkedIdTask());
+                                priorityTaskTree.deleteNode(priorityTask);
+                                task = priorityTask;
+                            }
+
+                            if (normalRank > 0.0 && normalRank >= vipRank && normalRank >= priorityRank) {
+                                log.info("{}: Normal Task found - deleting the linked task from ID tree", methodName);
+                                idTaskTree.deleteNode(normalTask.getLinkedIdTask());
+                                normalTaskTree.deleteNode(normalTask);
+                                task = normalTask;
+                            }
+
+                        }
                     }
-                    return task;
-                } else {
-                    log.info("{}: The tree is empty", methodName);
-                    return null;
                 }
             }
+        }
+
+        if (task != null) {
+            n--;
+            if (n < 0) {
+                log.error("{}: Queue size is negative; resetting", methodName);
+                // TODO: For some robustness it may be worth implementing a method
+                //  that calculates the queue size in case of invalid size stored
+                n = 0;
+            }
+
+            sumEnqueueTime -= task.getEnqueueTime();
+            if (sumEnqueueTime < 0) {
+                log.error("{}: Sum enqueue time is negative; resetting", methodName);
+                sumEnqueueTime = 0L;
+            }
+            return task;
+        } else {
+            log.info("{}: The tree is empty", methodName);
+            return null;
         }
     }
 
@@ -158,13 +244,93 @@ public class TaskPriorityQueue {
      */
     public List<RankedTask> getRankedTaskList() {
         String methodName = "getRankedTaskList";
-        synchronized (rankedTaskTree) {
-            log.info("{}: building the tasks list from highest rank to lowest", methodName);
-            // The list built from red-black tree is sorted from lowest to highest
-            // rank - need to reverse it
-            List<RankedTask> taskList = rankedTaskTree.buildNodeList();
-            Collections.reverse(taskList);
-            return taskList;
+        synchronized (overrideTaskTree) {
+            synchronized (vipTaskTree) {
+                synchronized (priorityTaskTree) {
+                    synchronized (normalTaskTree) {
+                        log.info("{}: building the tasks list from highest rank to lowest", methodName);
+                        List<RankedTask> resultList = overrideTaskTree.buildNodeList();
+                        List<RankedTask> vipList = vipTaskTree.buildNodeList();
+                        List<RankedTask> priorityList = priorityTaskTree.buildNodeList();
+                        List<RankedTask> normalList = normalTaskTree.buildNodeList();
+
+                        if (resultList == null) {
+                            resultList = new ArrayList<>();
+                        }
+
+                        if (resultList != null && !resultList.isEmpty()) {
+                            Collections.reverse(resultList);
+                        }
+                        if (vipList != null && !vipList.isEmpty()) {
+                            Collections.reverse(vipList);
+                        }
+                        if (priorityList != null && !priorityList.isEmpty()) {
+                            Collections.reverse(priorityList);
+                        }
+                        if (normalList != null && !normalList.isEmpty()) {
+                            Collections.reverse(normalList);
+                        }
+
+                        // Merge four lists
+                        while ((vipList!= null && !vipList.isEmpty()) ||
+                               (priorityList != null && !priorityList.isEmpty()) ||
+                               (normalList != null && !normalList.isEmpty())) {
+
+                            RankedTask vipTask = null;
+                            RankedTask priorityTask = null;
+                            RankedTask normalTask = null;
+
+                            if (vipList!= null && !vipList.isEmpty()) {
+                                vipTask = vipList.get(0);
+                            }
+
+                            if (priorityList != null && !priorityList.isEmpty()) {
+                                priorityTask = priorityList.get(0);
+                            }
+
+                            if (normalList != null && !normalList.isEmpty()) {
+                                normalTask = normalList.get(0);
+                            }
+
+                            double vipRank = -1.0;
+                            double priorityRank = -1.0;
+                            double normalRank = -1.0;
+
+                            if (vipTask != null) {
+                                vipRank = vipTask.getCurrentRank();
+                            }
+
+                            if (priorityTask != null) {
+                                priorityRank = priorityTask.getCurrentRank();
+                            }
+
+                            if (normalTask != null) {
+                                normalRank = normalTask.getCurrentRank();
+                            }
+
+                            if (vipRank > 0.0 && vipRank >= priorityRank && vipRank >= normalRank) {
+                                log.debug("{}: Adding VIP task to the final list", methodName);
+                                resultList.add(vipTask);
+                                vipList.remove(vipTask);
+                            }
+
+                            if (priorityRank > 0.0 && priorityRank >= vipRank && priorityRank >= normalRank) {
+                                log.info("{}: Adding Priority task to the final list", methodName);
+                                resultList.add(priorityTask);
+                                priorityList.remove(priorityTask);
+                            }
+
+                            if (normalRank > 0.0 && normalRank >= vipRank && normalRank >= priorityRank) {
+                                log.info("{}: Adding Normal task to the final list", methodName);
+                                resultList.add(normalTask);
+                                normalList.remove(normalTask);
+                            }
+                        }
+
+                        return resultList;
+                    }
+                }
+            }
         }
     }
 
@@ -205,29 +371,43 @@ public class TaskPriorityQueue {
         log.info("{}: Trying to delete task: {}", methodName, id);
         IDTask idTask = new IDTask(id);
         synchronized (idTaskTree) {
-            synchronized (rankedTaskTree) {
-                Node<IDTask> idNode = idTaskTree.findValue(idTask);
-                if (idNode != null) {
-                    log.info("{}: Task {} found, deleting", methodName, id);
-                    rankedTaskTree.deleteNode(idNode.getData().getLinkedRankedTask());
-                    idTaskTree.deleteNode(idTask);
-                    n--;
-                    if (n < 0) {
-                        log.error("{}: Queue size is negative; resetting", methodName);
-                        n = 0;
-                    }
+            Node<IDTask> idNode = idTaskTree.findValue(idTask);
+            if (idNode != null) {
+                log.info("{}: Task {} found, deleting", methodName, id);
 
-                    sumEnqueueTime -= idNode.getData().getLinkedRankedTask().getEnqueueTime();
-                    if (sumEnqueueTime < 0) {
-                        log.error("{}: Sum enqueue time is negative; resetting", methodName);
-                        sumEnqueueTime = 0L;
+                RankedTask rankedTask = idNode.getData().getLinkedRankedTask();
+                switch (rankedTask.getTaskClass()) {
+                    case MANAGEMENT_OVERRIDE -> {
+                        synchronized (overrideTaskTree) { overrideTaskTree.deleteNode(rankedTask); }
                     }
-
-                    return Status.S_OK;
-                } else {
-                    log.info("{}: Task {} NOT found", methodName, id);
-                    return Status.E_TASK_NOT_FOUND;
+                    case VIP -> {
+                        synchronized (vipTaskTree) { vipTaskTree.deleteNode(rankedTask); };
+                    }
+                    case PRIORITY -> {
+                        synchronized (priorityTaskTree) { priorityTaskTree.deleteNode(rankedTask); };
+                    }
+                    default -> {
+                        synchronized (normalTaskTree) { normalTaskTree.deleteNode(rankedTask); };
+                    }
                 }
+
+                idTaskTree.deleteNode(idTask);
+                n--;
+                if (n < 0) {
+                    log.error("{}: Queue size is negative; resetting", methodName);
+                    n = 0;
+                }
+
+                sumEnqueueTime -= idNode.getData().getLinkedRankedTask().getEnqueueTime();
+                if (sumEnqueueTime < 0) {
+                    log.error("{}: Sum enqueue time is negative; resetting", methodName);
+                    sumEnqueueTime = 0L;
+                }
+
+                return Status.S_OK;
+            } else {
+                log.info("{}: Task {} NOT found", methodName, id);
+                return Status.E_TASK_NOT_FOUND;
             }
         }
     }

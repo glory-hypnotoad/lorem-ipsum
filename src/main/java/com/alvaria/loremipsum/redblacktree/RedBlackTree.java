@@ -95,6 +95,34 @@ public class RedBlackTree<V extends Comparable<V>> {
     }
 
     /**
+     * Find maximum data element
+     * @return {@code data} if found;
+     *         {@code null} otherwise
+     */
+    public V findMaxData() {
+        Node<V> maxNode = findMaximum(root);
+        if (maxNode != null) {
+            return maxNode.data;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Find minimum data element
+     * @return {@code data} if found;
+     *         {@code null} otherwise
+     */
+    public V findMinData() {
+        Node<V> minNode = findMinimum(root);
+        if (minNode != null) {
+            return minNode.data;
+        } else {
+            return null;
+        }
+    }
+
+    /**
      * Find the maximum value AND delete its node
      * @return {@code value} if the tree is not empty;
      *         {@code null} otherwise

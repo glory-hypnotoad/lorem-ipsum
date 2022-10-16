@@ -31,13 +31,8 @@ public class LoremIpsumApplication extends SpringBootServletInitializer {
         this.queue = queue;
     }
 
-    @GetMapping("/hello")
-    public String sayHello(@RequestParam(value = "myName", defaultValue = "World") String name) {
-        return String.format("Hello %s!", name);
-    }
-
     @PostMapping(value = "/newtask")
-    public HttpStatus newTask(@RequestBody String body) {
+    public @ResponseBody ResponseEntity<?> newTask(@RequestBody String body) {
         String methodName = "newTask";
         log.info("Body: {}", body);
         JSONObject jsonBody = new JSONObject(body);
@@ -48,15 +43,21 @@ public class LoremIpsumApplication extends SpringBootServletInitializer {
 
             if (status == TaskPriorityQueue.Status.S_OK) {
                 log.info("{}: new task added to the queue", methodName);
-                return HttpStatus.OK;
-            } else  {
+                return ResponseEntity.status(HttpStatus.OK).build();
+            } else if (status == TaskPriorityQueue.Status.E_QUEUE_FULL) {
+                log.info("{}: Queue is full; status: {}", methodName, status);
+                JSONObject obj = new JSONObject();
+                obj.put("status", status);
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(obj.toString());
+            } else {
                 log.info("{}: Failed to add new task: {}", methodName, status);
-                return HttpStatus.BAD_REQUEST;
+                JSONObject obj = new JSONObject();
+                obj.put("status", status);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(obj.toString());
             }
         } catch (JSONException ex) {
             log.error("{}: failed to parse the JSON string [{}]", methodName, body);
-            ex.printStackTrace();
-            return HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 
@@ -78,8 +79,13 @@ public class LoremIpsumApplication extends SpringBootServletInitializer {
         String methodName = "listIds";
         log.info("{}: Getting the list of tasks in the queue", methodName);
         List<RankedTask> rankedTaskList = queue.getRankedTaskList();
-        log.info("{}: Got the list of size {} task[0]={}", methodName, rankedTaskList.size(), rankedTaskList.get(0).getEnqueueTime());
-        return ResponseEntity.status(HttpStatus.OK).body(rankedTaskList);
+        if (rankedTaskList != null) {
+            log.info("{}: Got the list of size {}", methodName, rankedTaskList.size());
+            return ResponseEntity.status(HttpStatus.OK).body(rankedTaskList);
+        } else {
+            log.info("{}: Queue is empty", methodName);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 
     @GetMapping("/position/{id}")
